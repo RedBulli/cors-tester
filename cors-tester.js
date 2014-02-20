@@ -1,57 +1,124 @@
-module.exports.singleTest = function(testServerPort, testUrl, testMethod) {
-  //var testUrl = 'http://localhost:5000/users/me';
-  //var testMethod = 'GET'
-  var server = createServer(testServerPort);
+var defaultConfigs = {
+  method: 'GET',
+  port: 4000
+};
 
+module.exports.init = function(callback) {
   var phantom = require('phantom');
-
   phantom.create(function(ph) {
-    return ph.createPage(function(page) {
-      var serverHost = 'http://localhost:' + testServerPort;
-      return page.open(serverHost + '/?url=' + testUrl + '&method=' + testMethod, function(status) {
+    callback(initialize(ph));
+  });
+}
+
+function initialize(ph) {
+  
+  function close() {
+    ph.exit();
+  }
+
+  function getDefaultedConfig(configParam) {
+    assertConfigIsAStringOrAnObject(configParam);
+    if (!configParam) {
+      throw new Error('No URL or config given!');
+    }
+    var config = {};
+    if (typeof configParam == 'string') {
+      config.url = configParam;
+      config.port = defaultConfigs.port;
+      config.method = defaultConfigs.method;
+    } else {
+      if (!configParam.url) {
+        throw new Error('Config object must have key "url"!');
+      }
+      config.url = configParam.url;
+      config.method = configParam.method || defaultConfigs.method;
+      config.port = configParam.port || defaultConfigs.port;
+    }
+    return config;
+  }
+
+  function getDefaultedCallback(callback) {
+    if (callback) {
+      assertCallbackIsAFunction(callback);
+      return callback;
+    } else {
+      return function(){};
+    }
+  }
+
+  function assertConfigIsAStringOrAnObject(configParam) {
+    var type = typeof configParam;
+    if (type !== 'object' && type !== 'string') {
+      throw new TypeError('First (url||config) parameter has to be a string or an object');
+    }
+  }
+
+  function assertCallbackIsAFunction(callback) {
+    var type = typeof callback;
+    if (type !== 'function') {
+      throw new TypeError('Second (callback) parameter has to be a function');
+    }
+  }
+
+  function singleTest(configParam, callbackParam) {
+    var config = getDefaultedConfig(configParam);
+    var callback = getDefaultedCallback(callbackParam);
+    var serverHost = 'http://localhost:' + config.port;
+    var url = serverHost + '/?url=' + config.url + '&method=' + config.method;
+    
+    var server = createServer();
+    ph.createPage(openPage);
+
+    function openPage(page) {
+      page.open(url, processPage);
+      function processPage(status) {
+        server.close();
         if (status == 'success') {
           return page.evaluate(
-            (evaluatePage), 
+            (evaluatePage),
             function(result) {
-              handlePageResult(result)
-              ph.exit();
-              server.close();
+              callback(result);
             }
           );
         } else {
-          ph.exit();
-          server.close();
           throw new Error('Cannot connect to the CORS-testserver.');
         }
-      });
-    });
-  });
+      }
+    }
 
-  function createServer(port) {
-    var http = require('http');
-    var fs = require('fs');
-    var index = fs.readFileSync('cors.html');
+    function createServer() {
+      var http = require('http');
+      var fs = require('fs');
+      var index = fs.readFileSync('cors.html');
 
-    return server = http.createServer(function (req, res) {
-      res.writeHead(200, {'Content-Type': 'text/html'});
-      res.end(index);
-    }).listen(port);
+      return server = http.createServer(function (req, res) {
+        res.writeHead(200, {'Content-Type': 'text/html'});
+        res.end(index);
+      }).listen(config.port);
+    }
+
+    function evaluatePage() {
+      if (document.getElementById('error') === null) {
+        return {htmlerror: 'Failed to load HTML'};
+      }
+      var error = document.getElementById('error').innerHTML;
+      if (error && error.length > 0) {
+        return {
+          error: error,
+          statusCode: document.getElementById('statusCode').innerHTML
+        };
+      }
+      else {
+        return {
+          statusCode: document.getElementById('statusCode').innerHTML,
+          response: document.getElementById('response').innerHTML
+        };
+      }
+    }
   }
 
-  function handlePageResult(result) {
-    console.log(result);
-  }
-
-  function evaluatePage() {
-    var error = document.getElementById('error').innerHTML;
-    if (error && error.length > 0) {
-      return {error: error};
-    }
-    else {
-      return {
-        status: document.getElementById('status').innerHTML,
-        response: document.getElementById('response').innerHTML
-      };
-    }
+  return {
+    singleTest: singleTest,
+    close: close
   }
 }

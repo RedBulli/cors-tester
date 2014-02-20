@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+  <head></head>
+  <body>
+    <div>Status: <span id="statusCode"></span></div>
+    <div id="error"></div>
+    <div id="response"></div>
+    <script>
+      function setHtml(id, html) {
+        document.getElementById(id).innerHTML = html;
+      }
+
+      function raiseError(id, text) {
+        setHtml('error', text);
+        throw new Error(text);
+      }
+      //Snippet copied from http://www.html5rocks.com/en/tutorials/cors/
+      function createCORSRequest(method, url) {
+        var xhr = new XMLHttpRequest();
+        if ('withCredentials' in xhr) {
+          xhr.open(method, url, true);
+        } else if (typeof XDomainRequest != 'undefined') {
+          xhr = new XDomainRequest();
+          xhr.open(method, url);
+        } else {
+          xhr = null;
+        }
+        return xhr;
+      }
+
+      function makeCorsRequest(url, method) {
+        var request_method = method || 'GET';
+        var xhr = createCORSRequest(request_method, url);
+        if (!xhr) {
+          setHtml('error', "Your browser doesn't support CORS");
+        }
+
+        xhr.onload = function() {
+          setHtml('statusCode', xhr.status);
+          setHtml('response', xhr.responseText);
+        };
+
+        xhr.onerror = function() {
+          setHtml('statusCode', xhr.status);
+          setHtml('error', 'REQUEST FAILED');
+        };
+
+        xhr.send();
+      }
+
+      //URL-parameter solution from http://stackoverflow.com/a/8764051
+      function getURLParameter(name) {
+        return decodeURIComponent((new RegExp('[?|&]' + name + '=' + '([^&;]+?)(&|#|;|$)').exec(location.search)||[,""])[1].replace(/\+/g, '%20'))||null;
+      }
+
+      window.onload = function() {
+        makeCorsRequest(getURLParameter('url'), getURLParameter('method'));
+      };
+    </script>
+  </body>
+</html>
