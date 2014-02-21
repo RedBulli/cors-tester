@@ -9,10 +9,9 @@
   "engines": {
     "node": "~0.10.20"
   },
-  "main": "node cors-tester.js",
+  "main": "cors-tester.js",
   "scripts": {
-    "test": "mocha --reporter spec",
-    "simple": "node server.js"
+    "test": "mocha --reporter spec"
   },
   "repository": {
     "type": "git",
