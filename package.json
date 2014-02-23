@@ -4,7 +4,7 @@
   "description": "cors-tester ===========",
   "dependencies": {
     "phantomjs": "~1.9.7-1",
-    "phantom": "~0.5.4"
+    "node-phantom-simple": "~1.1.0"
   },
   "engines": {
     "node": "~0.10.20"

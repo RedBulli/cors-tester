@@ -1,124 +1,59 @@
-var defaultConfigs = {
-  method: 'GET',
-  port: 4000
-};
-
-module.exports.init = function(callback) {
-  var phantom = require('phantom');
-  phantom.create(function(ph) {
-    callback(initialize(ph));
-  });
+module.exports.runOnce = function(configParam, callbackParam) {
+  var parameterHandling = require('./lib/parameterHandling');
+  var config = parameterHandling.getDefaultedConfig(configParam);
+  var callback = parameterHandling.getDefaultedCallback(callbackParam);
+  var phantom = require('node-phantom-simple');
+  var params = {
+    phantomPath: require('phantomjs').path
+  };
+  phantom.create(create, params);
+  function create(err, ph) {
+    if (err) {
+      throw new Error(err);
+    }
+    var singleTest = initialize(ph, config);
+    singleTest(function(networkEvents) {
+      ph.exit();
+      var returnObject = require('./lib/returnObject').getReturnObjectFromXhrNetworkEvents(config.url, networkEvents);
+      callback(returnObject);
+    });
+  } 
 }
 
-function initialize(ph) {
-  
-  function close() {
-    ph.exit();
-  }
+function initialize(ph, config) {
 
-  function getDefaultedConfig(configParam) {
-    assertConfigIsAStringOrAnObject(configParam);
-    if (!configParam) {
-      throw new Error('No URL or config given!');
-    }
-    var config = {};
-    if (typeof configParam == 'string') {
-      config.url = configParam;
-      config.port = defaultConfigs.port;
-      config.method = defaultConfigs.method;
-    } else {
-      if (!configParam.url) {
-        throw new Error('Config object must have key "url"!');
-      }
-      config.url = configParam.url;
-      config.method = configParam.method || defaultConfigs.method;
-      config.port = configParam.port || defaultConfigs.port;
-    }
-    return config;
-  }
-
-  function getDefaultedCallback(callback) {
-    if (callback) {
-      assertCallbackIsAFunction(callback);
-      return callback;
-    } else {
-      return function(){};
-    }
-  }
-
-  function assertConfigIsAStringOrAnObject(configParam) {
-    var type = typeof configParam;
-    if (type !== 'object' && type !== 'string') {
-      throw new TypeError('First (url||config) parameter has to be a string or an object');
-    }
-  }
-
-  function assertCallbackIsAFunction(callback) {
-    var type = typeof callback;
-    if (type !== 'function') {
-      throw new TypeError('Second (callback) parameter has to be a function');
-    }
-  }
-
-  function singleTest(configParam, callbackParam) {
-    var config = getDefaultedConfig(configParam);
-    var callback = getDefaultedCallback(callbackParam);
+  function singleTest(callback) {
     var serverHost = 'http://localhost:' + config.port;
     var url = serverHost + '/?url=' + config.url + '&method=' + config.method;
-    
-    var server = createServer();
+    var server = require('./lib/requesterServer').createServer(config.port);
+    var networkEvents = {
+      requests: [],
+      responses: [],
+      errors: [],
+      timeouts: []
+    };
     ph.createPage(openPage);
 
-    function openPage(page) {
-      page.open(url, processPage);
-      function processPage(status) {
+    function openPage(err, page) {
+      page.open(url);
+
+      page.onResourceError = function(resourceError) {
+        networkEvents.errors.push(resourceError);
+      };
+      page.onResourceRequested = function(requestData, networkRequest) {
+        networkEvents.requests.push(requestData);
+      };
+
+      page.onResourceReceived = function(response) {
+        networkEvents.responses.push(response);
+      };
+
+      page.onLoadFinished = function(status) {
         server.close();
-        if (status == 'success') {
-          return page.evaluate(
-            (evaluatePage),
-            function(result) {
-              callback(result);
-            }
-          );
-        } else {
-          throw new Error('Cannot connect to the CORS-testserver.');
-        }
-      }
-    }
-
-    function createServer() {
-      var http = require('http');
-      var fs = require('fs');
-      var index = fs.readFileSync('cors.html');
-
-      return server = http.createServer(function (req, res) {
-        res.writeHead(200, {'Content-Type': 'text/html'});
-        res.end(index);
-      }).listen(config.port);
-    }
-
-    function evaluatePage() {
-      if (document.getElementById('error') === null) {
-        return {htmlerror: 'Failed to load HTML'};
-      }
-      var error = document.getElementById('error').innerHTML;
-      if (error && error.length > 0) {
-        return {
-          error: error,
-          statusCode: document.getElementById('statusCode').innerHTML
-        };
-      }
-      else {
-        return {
-          statusCode: document.getElementById('statusCode').innerHTML,
-          response: document.getElementById('response').innerHTML
-        };
-      }
+        callback(networkEvents);
+      };
     }
   }
 
-  return {
-    singleTest: singleTest,
-    close: close
-  }
+  return singleTest;
 }

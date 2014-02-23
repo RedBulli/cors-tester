@@ -9,61 +9,60 @@ var chai = require('chai')
   , should = chai.should()
   , expect = chai.expect
   , serverApp = require('./test_server')
-  , cors_tester_lib = require('./cors-tester');
+  , cors_tester_lib = require('./../cors-tester');
 
 describe('CORS-tester', function() {
   this.timeout(config.timeout);
-  var cors_tester;
-  before(function(done) {
-    cors_tester_lib.init(function(tester) {
-      cors_tester = tester;
-      done();
-    });
-  });
-
-  after(function() {
-    cors_tester.close();
-  });
 
   describe('config', function() {
     describe('invalids', function() {
       it('should throw Error if no parameters are given', function() {
-        expect(cors_tester.singleTest).to.throw(Error);
+        expect(cors_tester_lib.runOnce).to.throw(Error);
       });
 
       it('should throw TypeError if the first parameter is an int', function() {
         var fn = function() {
-          cors_tester.singleTest(1);
+          cors_tester_lib.runOnce(1);
         };
         expect(fn).to.throw(TypeError);
       });
 
       it('should throw TypeError if config parameter is a function', function() {
         var fn = function() {
-          cors_tester.singleTest(function(){});
+          cors_tester_lib.runOnce(function(){});
         };
-        expect(cors_tester.singleTest).to.throw(TypeError);
+        expect(fn).to.throw(TypeError);
       });
 
       it('should throw TypeError if callback parameter is not a function', function() {
         var fn = function() {
-          cors_tester.singleTest('http://localhost:9000', 'http://localhost:9000');
+          cors_tester_lib.runOnce('http://localhost:9000', 'http://localhost:9000');
         };
-        expect(cors_tester.singleTest).to.throw(TypeError);
+        expect(fn).to.throw(TypeError);
       });
 
       it('should throw Error if config object doesnt have a url', function() {
         var fn = function() {
-          cors_tester.singleTest({method: 'GET', port: 4004}, function() {});
+          cors_tester_lib.runOnce({method: 'GET', port: 4004}, function() {});
         };
-        expect(cors_tester.singleTest).to.throw(Error);
+        expect(fn).to.throw(Error);
       });
 
-/*      it('should return a htmlerror if no document is found', function() {
-        cors_tester.singleTest('http://localhost:99999', function(retval) {
-          retval.should.have.property('htmlerror');
+      it('should return an error if the url is malformed', function(done) {
+        cors_tester_lib.runOnce('http://localhost:999999999', function(retval) {
+          should.not.exist(retval.error.errorCode);
+          retval.error.errorString.should.equal('No XHR requests made. This is most likely due to malformed URL');
+          done();
         });
-      });*/
+      });
+
+      it('should return an error if the host doesnt exist', function(done) {
+        cors_tester_lib.runOnce('http://l:9999/?id=ddd', function(retval) {
+          retval.error.errorCode.should.equal(3);
+          retval.error.errorString.should.equal('Host l not found');
+          done();
+        });
+      });
 
     });
 
@@ -89,8 +88,9 @@ describe('CORS-tester', function() {
         url: corsDisabledURL,
         method: 'GET'
       };
-      cors_tester.singleTest(testConfig, function(retval) {
-        retval.statusCode.should.equal('0');
+      cors_tester_lib.runOnce(testConfig, function(retval) {
+        retval.error.errorString.should.equal('Operation canceled');
+        retval.error.errorCode.should.equal(5);
         done();
       });
     });
@@ -113,8 +113,13 @@ describe('CORS-tester', function() {
     });
 
     it('should work with only an url given', function(done) {
-      cors_tester.singleTest(corsEnabledURL, function(retval) {
-        retval.statusCode.should.equal('200');
+      var testConfig = {
+        port: config.corsRequesterPort,
+        url: corsEnabledURL,
+        method: 'GET'
+      };
+      cors_tester_lib.runOnce(corsEnabledURL, function(retval) {
+        retval.success.should.equal('Success');
         done();
       });
     });
@@ -125,8 +130,8 @@ describe('CORS-tester', function() {
         url: corsEnabledURL,
         method: 'GET'
       };
-      cors_tester.singleTest(testConfig, function(retval) {
-        retval.statusCode.should.equal('200');
+      cors_tester_lib.runOnce(testConfig, function(retval) {
+        retval.success.should.equal('Success');
         done();
       });
     });
@@ -137,8 +142,9 @@ describe('CORS-tester', function() {
         url: corsEnabledURL + 'notfound404',
         method: 'GET'
       };
-      cors_tester.singleTest(testConfig, function(retval) {
-        retval.statusCode.should.equal('404');
+      cors_tester_lib.runOnce(testConfig, function(retval) {
+        retval.error.errorCode.should.equal(203);
+        retval.error.errorString.should.equal('Error downloading http://localhost:4003/notfound404 - server replied: Not Found');
         done();
       });
     });
@@ -149,8 +155,8 @@ describe('CORS-tester', function() {
         url: corsEnabledURL + 'post',
         method: 'POST'
       };
-      cors_tester.singleTest(testConfig, function(retval) {
-        retval.statusCode.should.equal('200');
+      cors_tester_lib.runOnce(testConfig, function(retval) {
+        retval.success.should.equal('Success');
         done();
       });
     });
@@ -177,8 +183,8 @@ describe('CORS-tester', function() {
         url: corsEnabledURL,
         method: 'GET'
       };
-      cors_tester.singleTest(testConfig, function(retval) {
-        retval.statusCode.should.equal('200');
+      cors_tester_lib.runOnce(testConfig, function(retval) {
+        retval.success.should.equal('Success');
         done();
       });
     });
@@ -189,8 +195,9 @@ describe('CORS-tester', function() {
         url: corsEnabledURL,
         method: 'GET'
       };
-      cors_tester.singleTest(testConfig, function(retval) {
-        retval.statusCode.should.equal('0');
+      cors_tester_lib.runOnce(testConfig, function(retval) {
+        retval.error.errorString.should.equal('Operation canceled');
+        retval.error.errorCode.should.equal(5);
         done();
       });
     });
