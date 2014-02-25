@@ -4,7 +4,7 @@ var returnObjectLib = require('./lib/returnObject')
 module.exports.simpleTest = function(configParam, callbackParam) {
   var config = parameterHandling.getDefaultedConfig(configParam);
   var callback = parameterHandling.getCallback(callbackParam);
-  makeRequest(configParam, function(retval) {
+  makeRequest(config, function(retval) {
     var simpleRetVal = returnObjectLib.convertToSimpleReturnValue(retval);
     callbackParam(simpleRetVal);
   });

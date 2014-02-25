@@ -264,4 +264,23 @@ describe('CORS-tester', function() {
     });
   });
 
+  describe('simpleTest with only url parameter', function() {
+    var corsEnabledServer;
+
+    before(function() {
+      corsEnabledServer = createCorsEnabledServer('*');
+    });
+
+    after(function() {
+      corsEnabledServer.close();
+    });
+
+    it('should return success when cors passed', function(done) {
+      corsTester.simpleTest(config.corsEnabledURL, function(returnValue) {
+        returnValue.should.equal('Success!');
+        done();
+      });
+    });
+  });
+
 });
