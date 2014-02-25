@@ -1,7 +1,7 @@
 {
   "name": "cors-tester",
   "version": "0.1.0",
-  "description": "cors-tester ===========",
+  "description": "Makes a cors-request by Phantomjs",
   "dependencies": {
     "phantomjs": "~1.9.7-1",
     "node-phantom-simple": "~1.1.0"
