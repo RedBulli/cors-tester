@@ -19,11 +19,14 @@ corsTesterLib.simpleTest('http://localhost:9000', function(returnValue) {
   console.log(returnValue);
 });
 
+//These will make a GET request from Origin: http://localhost:4006 to the specified url
+//Which means that the server should return proper Access-Control headers allowing http://localhost:4006 to access
+
 // The first parameter can also be an object with the following variables
 var config = {
-  port: 4447,
+  port: 4447, //Default=4006
   url: 'http://localhost:9000',
-  method: 'POST'
+  method: 'POST' //Default="GET"
 };
 corsTesterLib.simpleTest(config, function(returnValue) {
   console.log(returnValue);
